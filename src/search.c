@@ -193,6 +193,7 @@ static int qsearch(Worker *worker, const Position *pos, int ply, int depth, int 
     he.eval = pos->checkers ? -INF : staticEval;
     he.depth = depth;
     he.move = bestMove;
+    he.date = hash_date;
     he.keyXorData = pos->key ^ he.data;
     hash_write(pos->key, &he);
 
@@ -294,8 +295,8 @@ static int search(Worker *worker, const Position *pos, int ply, int depth, int a
         pos_switch(&nextPos, pos);
         stack_push(&worker->stack, nextPos.key);
         score = nextDepth <= 0
-                ? -qsearch(worker, &nextPos, ply + 1, nextDepth, -beta, -(beta - 1), childPv)
-                : -search(worker, &nextPos, ply + 1, nextDepth, -beta, -(beta - 1), childPv, 0);
+            ? -qsearch(worker, &nextPos, ply + 1, nextDepth, -beta, -(beta - 1), childPv)
+            : -search(worker, &nextPos, ply + 1, nextDepth, -beta, -(beta - 1), childPv, 0);
         stack_pop(&worker->stack);
 
         if (score >= beta)
@@ -323,8 +324,9 @@ static int search(Worker *worker, const Position *pos, int ply, int depth, int a
         // Play move
         pos_move(&nextPos, pos, currentMove);
 
-        // Prune losing captures in the search, near the leaves
-        if (depth <= 4 && see < 0 && !pvNode && !pos->checkers && !nextPos.checkers
+        // Prune losing captures and lated moves, near the leaves
+        if (depth <= 4 && !pvNode && !pos->checkers && !nextPos.checkers
+                && (see < 0 || (depth <= 2 && moveCount >= 1 + 4 * depth))
                 && !move_is_capture(pos, currentMove))
             continue;
 
@@ -441,6 +443,7 @@ static int search(Worker *worker, const Position *pos, int ply, int depth, int a
     he.eval = pos->checkers ? -INF : staticEval;
     he.depth = depth;
     he.move = bestMove;
+    he.date = hash_date;
     he.keyXorData = key ^ he.data;
     hash_write(key, &he);
 
@@ -548,6 +551,7 @@ int64_t search_go()
     mtx_init(&mtxSchedule, mtx_plain);
     Signal = 0;
 
+    hash_date++;
     thrd_t threads[WorkersCount];
     smp_new_search();
 

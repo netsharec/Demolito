@@ -15,23 +15,24 @@
 */
 #include "htable.h"
 
+unsigned hash_date;
 HashEntry *HashTable = NULL;
-uint64_t HashCount = 0;
+static uint64_t HashCount = 0;
 
 int score_to_hash(int score, int ply)
 {
     assert(abs(score) < MATE);
     return score >= mate_in(MAX_PLY) ? score + ply
-           : score <= mated_in(MAX_PLY) ? score - ply
-           : score;
+        : score <= mated_in(MAX_PLY) ? score - ply
+        : score;
 }
 
 int score_from_hash(int hashScore, int ply)
 {
     assert(abs(hashScore) < MATE);
     return hashScore >= mate_in(MAX_PLY) ? hashScore - ply
-           : hashScore <= mated_in(MAX_PLY) ? hashScore + ply
-           : hashScore;
+        : hashScore <= mated_in(MAX_PLY) ? hashScore + ply
+        : hashScore;
 }
 
 void hash_resize(uint64_t hashMB)
@@ -47,15 +48,14 @@ void hash_resize(uint64_t hashMB)
 
 bool hash_read(uint64_t key, HashEntry *e)
 {
-    const uint64_t idx = key & (HashCount - 1);
-    *e = HashTable[idx];
+    *e = HashTable[key & (HashCount - 1)];
     return (e->keyXorData ^ e->data) == key;
 }
 
 void hash_write(uint64_t key, const HashEntry *e)
 {
-    HashEntry *replace = &HashTable[key & (HashCount - 1)];
+    HashEntry *slot = &HashTable[key & (HashCount - 1)];
 
-    if (key != (replace->keyXorData ^ replace->data) || e->depth >= replace->depth)
-        *replace = *e;
+    if (e->date != slot->date || e->depth >= slot->depth)
+        *slot = *e;
 }
